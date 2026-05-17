@@ -1,0 +1,1586 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartOps Workload Dashboard | InnoCorp</title>
+    
+    <!-- Tailwind CSS para el diseño B2B SaaS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- FontAwesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Chart.js para visualización de datos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        brand: { 50: '#eff6ff', 100: '#dbeafe', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 900: '#1e3a8a' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Ocultar pantallas no activas */
+        .screen { display: none; }
+        .screen.active { display: block; animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Animación para nuevas tarjetas generadas por IA */
+        @keyframes popIn { 0% { opacity: 0; transform: scale(0.95); } 50% { transform: scale(1.02); } 100% { opacity: 1; transform: scale(1); } }
+        .animate-pop-in { animation: popIn 0.5s ease-out forwards; }
+
+        /* Estilos para el scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* Ocultar elementos visualmente para animaciones manuales */
+        .opacity-0 { opacity: 0; }
+        .translate-y-4 { transform: translateY(1rem); }
+        .transition-all { transition-property: all; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 500ms; }
+
+        /* Estilos adicionales para la barra de progreso */
+        .progress-bar-striped {
+            background-image: linear-gradient(45deg, rgba(255, 255, 255, 0.15) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0.15) 75%, transparent 75%, transparent);
+            background-size: 1rem 1rem;
+            animation: progress-bar-stripes 1s linear infinite;
+        }
+        @keyframes progress-bar-stripes {
+            from { background-position: 1rem 0; }
+            to { background-position: 0 0; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 h-screen overflow-hidden flex font-sans">
+
+    <!-- PANTALLA 1: LOGIN -->
+    <div id="screen-login" class="screen active fixed inset-0 z-50 bg-slate-900 flex items-center justify-center">
+        <div class="absolute inset-0 overflow-hidden">
+            <div class="absolute -top-40 -right-40 w-96 h-96 bg-brand-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20"></div>
+            <div class="absolute -bottom-40 -left-40 w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20"></div>
+        </div>
+        <div class="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-10 border border-slate-100">
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 bg-brand-600 rounded-xl mx-auto flex items-center justify-center shadow-lg mb-4">
+                    <i class="fa-solid fa-bolt text-white text-3xl"></i>
+                </div>
+                <h1 class="text-3xl font-bold text-slate-900 tracking-tight">SmartOps</h1>
+                <p class="text-sm text-slate-500 mt-2 font-medium">Workload Dashboard for InnoCorp</p>
+            </div>
+            <form class="space-y-5" onsubmit="event.preventDefault();">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Email corporativo</label>
+                    <div class="relative">
+                        <i class="fa-regular fa-envelope absolute left-3 top-3 text-slate-400"></i>
+                        <input type="email" value="laura.gomez@innocorp.com" class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all" required>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Contraseña</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-lock absolute left-3 top-3 text-slate-400"></i>
+                        <input type="password" value="********" class="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all" required>
+                    </div>
+                </div>
+                <!-- Changed to type="button" to prevent form submission reload issues -->
+                <button type="button" onclick="login(event)" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-200">
+                    Acceder al Panel
+                </button>
+            </form>
+            <div class="mt-6 text-center text-xs text-slate-400">
+                &copy; 2026 InnoCorp Technology Consulting S.L.
+            </div>
+        </div>
+    </div>
+
+    <!-- APP SHELL (Sidebar + Main Content) -->
+    <div id="app-shell" class="hidden w-full h-full flex">
+        
+        <!-- SIDEBAR -->
+        <aside class="w-64 bg-slate-900 text-white flex flex-col h-full flex-shrink-0 shadow-xl z-20">
+            <div class="p-6 border-b border-slate-800 flex items-center gap-3">
+                <div class="w-8 h-8 bg-brand-500 rounded-lg flex items-center justify-center shadow-md">
+                    <i class="fa-solid fa-bolt text-white text-sm"></i>
+                </div>
+                <div>
+                    <h2 class="font-bold text-lg tracking-tight leading-none">SmartOps</h2>
+                    <span class="text-[10px] text-brand-300 font-medium uppercase tracking-wider">InnoCorp B2B</span>
+                </div>
+            </div>
+            
+            <div class="p-4">
+                <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-3">Mi Espacio</div>
+                <nav class="space-y-1">
+                    <button onclick="navigate('dashboard')" id="nav-dashboard" class="nav-btn w-full flex items-center gap-3 px-3 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium transition-colors text-left">
+                        <i class="fa-solid fa-house w-5 text-center"></i> Dashboard
+                    </button>
+                    <button onclick="navigate('automation')" id="nav-automation" class="nav-btn w-full flex items-center gap-3 px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white rounded-lg text-sm font-medium transition-colors text-left">
+                        <i class="fa-solid fa-wand-magic-sparkles w-5 text-center"></i> Automatización
+                    </button>
+                    <button onclick="navigate('timesheet')" id="nav-timesheet" class="nav-btn w-full flex items-center gap-3 px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white rounded-lg text-sm font-medium transition-colors text-left">
+                        <i class="fa-regular fa-clock w-5 text-center"></i> Timesheet
+                    </button>
+                    <button onclick="navigate('reports')" id="nav-reports" class="nav-btn w-full flex items-center gap-3 px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white rounded-lg text-sm font-medium transition-colors text-left">
+                        <i class="fa-regular fa-file-lines w-5 text-center"></i> Reportes
+                    </button>
+                    <button onclick="navigate('workload')" id="nav-workload" class="nav-btn w-full flex items-center gap-3 px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white rounded-lg text-sm font-medium transition-colors text-left">
+                        <i class="fa-solid fa-chart-pie w-5 text-center"></i> Carga Laboral
+                    </button>
+                    <button onclick="navigate('alerts')" id="nav-alerts" class="nav-btn w-full flex items-center gap-3 px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white rounded-lg text-sm font-medium transition-colors text-left relative">
+                        <i class="fa-regular fa-bell w-5 text-center"></i> Alertas
+                        <span class="absolute right-3 w-2 h-2 bg-rose-500 rounded-full"></span>
+                    </button>
+                    <button onclick="navigate('feedback')" id="nav-feedback" class="nav-btn w-full flex items-center gap-3 px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white rounded-lg text-sm font-medium transition-colors text-left">
+                        <i class="fa-regular fa-comment-dots w-5 text-center"></i> Feedback
+                    </button>
+                </nav>
+
+                <div class="mt-8 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-3">Administración</div>
+                <nav class="space-y-1">
+                    <button onclick="navigate('manager')" id="nav-manager" class="nav-btn w-full flex items-center gap-3 px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white rounded-lg text-sm font-medium transition-colors text-left">
+                        <i class="fa-solid fa-users w-5 text-center"></i> Vista Manager
+                    </button>
+                    <button onclick="navigate('pilot')" id="nav-pilot" class="nav-btn w-full flex items-center gap-3 px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white rounded-lg text-sm font-medium transition-colors text-left">
+                        <i class="fa-solid fa-bullseye w-5 text-center text-brand-400"></i> Resultados Piloto
+                    </button>
+                </nav>
+            </div>
+            
+            <div class="mt-auto p-4 border-t border-slate-800">
+                <div class="flex items-center gap-3">
+                    <img src="https://ui-avatars.com/api/?name=Laura+Gomez&background=3b82f6&color=fff&rounded=true" alt="User" class="w-9 h-9 rounded-full border-2 border-slate-700">
+                    <div class="overflow-hidden">
+                        <p class="text-sm font-medium text-white truncate">Laura Gómez</p>
+                        <p class="text-xs text-slate-400 truncate">Senior Consultant</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT AREA -->
+        <main class="flex-1 h-full overflow-y-auto bg-slate-50 relative p-8">
+            
+            <!-- PANTALLA 2: DASHBOARD EMPLEADO -->
+            <div id="view-dashboard" class="screen view-content active max-w-6xl mx-auto space-y-6">
+                <div class="flex justify-between items-end mb-6">
+                    <div>
+                        <h1 class="text-2xl font-bold text-slate-900">Hola, Laura. Esta es tu semana en SmartOps.</h1>
+                        <p class="text-slate-500 mt-1">Resumen de carga laboral - Semana actual</p>
+                    </div>
+                    <div class="text-right">
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-sm font-medium border border-emerald-200 shadow-sm">
+                            <i class="fa-solid fa-check-circle"></i> Estado general saludable
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Tarjetas KPI -->
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                        <p class="text-sm font-medium text-slate-500 mb-1">Horas estimadas</p>
+                        <h3 class="text-2xl font-bold text-slate-800">44 <span class="text-sm font-normal text-slate-400">h</span></h3>
+                        <p class="text-xs text-emerald-600 mt-2 font-medium flex items-center gap-1"><i class="fa-solid fa-arrow-down"></i> -4h vs media</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm border-b-4 border-b-brand-500">
+                        <p class="text-sm font-medium text-slate-500 mb-1">Tiempo administrativo</p>
+                        <h3 class="text-2xl font-bold text-slate-800">1,8 <span class="text-sm font-normal text-slate-400">h</span></h3>
+                        <p class="text-xs text-emerald-600 mt-2 font-medium flex items-center gap-1"><i class="fa-solid fa-arrow-down"></i> Reducción lograda</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm bg-gradient-to-br from-brand-50 to-white">
+                        <p class="text-sm font-medium text-brand-700 mb-1">Tiempo ahorrado</p>
+                        <h3 class="text-2xl font-bold text-brand-600">40%</h3>
+                        <p class="text-xs text-brand-600 mt-2 font-medium flex items-center gap-1"><i class="fa-solid fa-bolt"></i> Gracias a SmartOps</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                        <p class="text-sm font-medium text-slate-500 mb-1">Riesgo sobrecarga</p>
+                        <h3 class="text-xl font-bold text-emerald-600 flex items-center gap-2">Bajo <i class="fa-solid fa-shield-check"></i></h3>
+                        <div class="w-full bg-slate-100 rounded-full h-1.5 mt-3"><div class="bg-emerald-500 h-1.5 rounded-full" style="width: 20%"></div></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                        <p class="text-sm font-medium text-slate-500 mb-1">Satisfacción semanal</p>
+                        <h3 class="text-2xl font-bold text-slate-800">8<span class="text-sm font-normal text-slate-400">/10</span></h3>
+                        <div class="flex gap-1 mt-2 text-amber-400 text-xs">
+                            <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-regular fa-star text-slate-300"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Gráfico Carga -->
+                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm lg:col-span-2">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-bold text-slate-800">Carga semanal estimada</h3>
+                            <span class="text-xs text-slate-500">Basado en Jira + Calendar</span>
+                        </div>
+                        <div class="h-64">
+                            <canvas id="chart-weekly"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Panel Automatizaciones -->
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col">
+                        <div class="p-5 border-b border-slate-100 bg-slate-50/50 rounded-t-xl">
+                            <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                                <i class="fa-solid fa-wand-magic-sparkles text-brand-500"></i> Automatizaciones activas
+                            </h3>
+                        </div>
+                        <div class="p-5 flex-1 flex flex-col gap-3">
+                            <div class="flex items-start gap-3 p-3 rounded-lg border border-brand-100 bg-brand-50 text-sm">
+                                <i class="fa-solid fa-clock text-brand-600 mt-0.5"></i>
+                                <div><p class="font-medium text-brand-900">Timesheet pre-rellenado</p><p class="text-xs text-brand-700">85% completado auto.</p></div>
+                            </div>
+                            <div class="flex items-start gap-3 p-3 rounded-lg border border-slate-100 bg-white text-sm shadow-sm">
+                                <i class="fa-solid fa-file-contract text-emerald-600 mt-0.5"></i>
+                                <div><p class="font-medium text-slate-800">Reporte semanal auto.</p><p class="text-xs text-slate-500">Borrador listo para enviar</p></div>
+                            </div>
+                            <div class="flex items-start gap-3 p-3 rounded-lg border border-slate-100 bg-white text-sm shadow-sm">
+                                <i class="fa-brands fa-jira text-blue-500 mt-0.5"></i>
+                                <div><p class="font-medium text-slate-800">Tareas importadas</p><p class="text-xs text-slate-500">Desde Jira Sprint 12</p></div>
+                            </div>
+                            <div class="flex items-start gap-3 p-3 rounded-lg border border-slate-100 bg-white text-sm shadow-sm">
+                                <i class="fa-regular fa-calendar text-rose-500 mt-0.5"></i>
+                                <div><p class="font-medium text-slate-800">Reuniones detectadas</p><p class="text-xs text-slate-500">14 eventos analizados</p></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botones Acciones Rápidas -->
+                <div class="flex flex-wrap gap-4 mt-4">
+                    <button onclick="navigate('timesheet')" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium rounded-lg shadow transition-colors flex items-center gap-2">
+                        <i class="fa-solid fa-check-double"></i> Revisar timesheet
+                    </button>
+                    <button onclick="navigate('reports')" class="px-5 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-medium rounded-lg shadow-sm transition-colors flex items-center gap-2">
+                        <i class="fa-solid fa-file-export"></i> Generar reporte
+                    </button>
+                    <button onclick="navigate('workload')" class="px-5 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-medium rounded-lg shadow-sm transition-colors flex items-center gap-2">
+                        <i class="fa-solid fa-chart-line"></i> Ver carga laboral
+                    </button>
+                    <button onclick="navigate('feedback')" class="px-5 py-2.5 bg-brand-50 text-brand-700 border border-brand-200 hover:bg-brand-100 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ml-auto">
+                        <i class="fa-regular fa-comment"></i> Enviar feedback
+                    </button>
+                </div>
+            </div>
+
+            <!-- PANTALLA 3: CENTRO DE AUTOMATIZACIÓN (REDESIÑADA) -->
+            <div id="view-automation" class="screen view-content max-w-5xl mx-auto space-y-8 pb-10">
+                
+                <!-- Encabezado -->
+                <div class="text-center">
+                    <div class="inline-flex items-center justify-center w-16 h-16 bg-brand-100 rounded-full mb-4">
+                        <i class="fa-solid fa-wand-magic-sparkles text-3xl text-brand-600"></i>
+                    </div>
+                    <h2 class="text-3xl font-bold text-slate-900 tracking-tight">Centro de Automatización Global</h2>
+                    <p class="text-slate-500 mt-2 max-w-2xl mx-auto">SmartOps centraliza tus herramientas de trabajo para reducir el trabajo manual. Con un solo clic, sincroniza datos, pre-rellena formularios y redacta reportes.</p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    <!-- Columna Izquierda: Integraciones -->
+                    <div class="lg:col-span-4 space-y-6">
+                        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div class="p-4 border-b border-slate-100 bg-slate-50">
+                                <h3 class="font-bold text-slate-800 text-sm uppercase tracking-wider">Herramientas Conectadas</h3>
+                            </div>
+                            <div class="p-2">
+                                <!-- Jira -->
+                                <div class="flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg transition-colors">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center text-xl"><i class="fa-brands fa-jira"></i></div>
+                                        <div><p class="font-medium text-slate-800 text-sm">Jira Software</p><p class="text-xs text-slate-500">Tickets y proyectos</p></div>
+                                    </div>
+                                    <span class="flex items-center gap-1 text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full"><div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div> Online</span>
+                                </div>
+                                <!-- Calendar -->
+                                <div class="flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg transition-colors">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 bg-brand-50 text-brand-600 rounded-lg flex items-center justify-center text-xl"><i class="fa-regular fa-calendar-check"></i></div>
+                                        <div><p class="font-medium text-slate-800 text-sm">Google Calendar</p><p class="text-xs text-slate-500">Reuniones y eventos</p></div>
+                                    </div>
+                                    <span class="flex items-center gap-1 text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full"><div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div> Online</span>
+                                </div>
+                                <!-- Docs/Drive -->
+                                <div class="flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg transition-colors">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 bg-amber-50 text-amber-500 rounded-lg flex items-center justify-center text-xl"><i class="fa-brands fa-google-drive"></i></div>
+                                        <div><p class="font-medium text-slate-800 text-sm">Google Workspace</p><p class="text-xs text-slate-500">Docs, Sheets & Drive</p></div>
+                                    </div>
+                                    <span class="flex items-center gap-1 text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full"><div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div> Online</span>
+                                </div>
+                            </div>
+                            <div class="p-3 border-t border-slate-100 bg-slate-50">
+                                <button class="w-full py-2 text-sm font-medium text-slate-600 hover:text-slate-900 border border-dashed border-slate-300 rounded-lg hover:border-slate-400 transition-colors">
+                                    <i class="fa-solid fa-plus mr-1"></i> Añadir integración
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Columna Central/Derecha: Acción y Resultados -->
+                    <div class="lg:col-span-8">
+                        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-8 text-center h-full flex flex-col justify-center">
+                            
+                            <!-- Botón Principal -->
+                            <div id="action-panel" class="transition-all duration-500">
+                                <i class="fa-solid fa-arrows-rotate text-5xl text-brand-200 mb-6 block"></i>
+                                <h3 class="text-xl font-bold text-slate-800 mb-2">Sincronización Semanal</h3>
+                                <p class="text-slate-500 text-sm mb-8 max-w-md mx-auto">SmartOps extraerá tu actividad de las herramientas conectadas, pre-rellenará tus timesheets y creará los borradores de tus reportes operativos.</p>
+                                
+                                <button id="btn-run-automation" onclick="runGlobalAutomation()" class="inline-flex items-center justify-center gap-3 px-8 py-4 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5 active:translate-y-0 text-lg w-full sm:w-auto">
+                                    <i class="fa-solid fa-bolt"></i> Iniciar Automatización Global
+                                </button>
+                            </div>
+
+                            <!-- Panel de Progreso (Oculto al inicio) -->
+                            <div id="automation-progress" class="hidden text-left w-full max-w-lg mx-auto py-8">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-sm font-bold text-slate-700 uppercase tracking-wider" id="progress-text">Iniciando motor SmartOps...</span>
+                                    <span class="text-sm font-bold text-brand-600" id="progress-percent">0%</span>
+                                </div>
+                                <div class="w-full bg-slate-100 rounded-full h-3 mb-6 overflow-hidden border border-slate-200">
+                                    <div id="progress-bar" class="bg-brand-500 h-3 rounded-full progress-bar-striped transition-all duration-300" style="width: 0%"></div>
+                                </div>
+                                
+                                <div class="bg-slate-900 rounded-lg p-4 font-mono text-xs text-emerald-400 h-32 overflow-hidden relative shadow-inner">
+                                    <ul class="space-y-1 opacity-80" id="progress-logs">
+                                        <!-- Logs injected via JS -->
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <!-- Panel de Resultados (Oculto al inicio) -->
+                            <div id="automation-results" class="hidden text-left w-full transition-all duration-500 opacity-0 translate-y-4">
+                                <div class="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
+                                    <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-2xl shadow-inner">
+                                        <i class="fa-solid fa-check"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-xl font-bold text-slate-800">Sincronización Completada</h3>
+                                        <p class="text-sm text-slate-500">Tareas administrativas resueltas para la semana actual.</p>
+                                    </div>
+                                    <div class="ml-auto text-right">
+                                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Impacto Generado</p>
+                                        <p class="text-lg font-bold text-brand-600 bg-brand-50 px-3 py-1 rounded-lg border border-brand-100 inline-block mt-1">1h 45m ahorradas</p>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                    <div class="p-4 rounded-xl border border-slate-200 bg-white hover:border-brand-300 hover:shadow-md transition-all group cursor-pointer" onclick="navigate('timesheet')">
+                                        <div class="flex justify-between items-start mb-2">
+                                            <div class="flex items-center gap-2">
+                                                <i class="fa-regular fa-clock text-brand-500 text-lg"></i>
+                                                <h4 class="font-bold text-slate-800">Timesheet Semanal</h4>
+                                            </div>
+                                            <span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded uppercase">Listo</span>
+                                        </div>
+                                        <p class="text-sm text-slate-600 mb-3">Se han mapeado 38h de trabajo desde Jira y Calendar. Faltan por confirmar 2h.</p>
+                                        <span class="text-brand-600 text-sm font-medium group-hover:underline">Revisar y Confirmar <i class="fa-solid fa-arrow-right ml-1 text-xs"></i></span>
+                                    </div>
+
+                                    <div class="p-4 rounded-xl border border-slate-200 bg-white hover:border-brand-300 hover:shadow-md transition-all group cursor-pointer" onclick="navigate('reports')">
+                                        <div class="flex justify-between items-start mb-2">
+                                            <div class="flex items-center gap-2">
+                                                <i class="fa-regular fa-file-lines text-blue-500 text-lg"></i>
+                                                <h4 class="font-bold text-slate-800">Reporte Operativo</h4>
+                                            </div>
+                                            <span class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded uppercase">Borrador</span>
+                                        </div>
+                                        <p class="text-sm text-slate-600 mb-3">Redactado resumen de 12 tickets completados y 1 bloqueo detectado.</p>
+                                        <span class="text-brand-600 text-sm font-medium group-hover:underline">Ver y Enviar <i class="fa-solid fa-arrow-right ml-1 text-xs"></i></span>
+                                    </div>
+                                    
+                                    <div class="p-4 rounded-xl border border-slate-200 bg-white hover:border-brand-300 hover:shadow-md transition-all group cursor-pointer" onclick="navigate('alerts')">
+                                        <div class="flex justify-between items-start mb-2">
+                                            <div class="flex items-center gap-2">
+                                                <i class="fa-solid fa-shield-halved text-amber-500 text-lg"></i>
+                                                <h4 class="font-bold text-slate-800">Prevención Burnout</h4>
+                                            </div>
+                                            <span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded uppercase">2 Alertas</span>
+                                        </div>
+                                        <p class="text-sm text-slate-600 mb-3">Se han detectado 3 reuniones solapadas y carga superior a 45h.</p>
+                                        <span class="text-brand-600 text-sm font-medium group-hover:underline">Revisar Alertas <i class="fa-solid fa-arrow-right ml-1 text-xs"></i></span>
+                                    </div>
+                                    
+                                    <div class="p-4 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-center border-dashed">
+                                        <button class="text-slate-500 hover:text-slate-800 text-sm font-medium flex items-center gap-2 transition-colors">
+                                            <i class="fa-solid fa-gear"></i> Configurar reglas
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div class="text-center">
+                                    <button onclick="resetGlobalAutomation()" class="text-sm text-slate-500 hover:text-slate-800 font-medium underline">Hacer otra sincronización</button>
+                                </div>
+                            </div>
+                            
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- PANTALLA 4: TIMESHEET INTELIGENTE -->
+            <div id="view-timesheet" class="screen view-content max-w-6xl mx-auto space-y-6">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-900">Timesheet Inteligente</h2>
+                        <p class="text-slate-500 mt-1">Verifica y aprueba las horas que SmartOps ha extraído automáticamente.</p>
+                    </div>
+                    <div class="bg-brand-50 border border-brand-200 px-4 py-2 rounded-lg flex items-center gap-3">
+                        <div class="w-8 h-8 bg-white rounded-full flex items-center justify-center text-brand-600 font-bold text-sm shadow-sm">⏱️</div>
+                        <div>
+                            <p class="text-xs text-brand-600 font-medium">Tiempo estimado ahorrado esta semana:</p>
+                            <p class="text-sm font-bold text-brand-800">35 minutos</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm font-medium text-slate-700">Estado de completitud auto:</span>
+                            <div class="w-32 bg-slate-200 rounded-full h-2.5">
+                                <div class="bg-brand-500 h-2.5 rounded-full" style="width: 85%"></div>
+                            </div>
+                            <span class="text-xs font-bold text-brand-700 ml-1">85%</span>
+                        </div>
+                        <p class="text-xs text-slate-500 italic">SmartOps ha pre-rellenado el 85% de tu timesheet</p>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="text-xs text-slate-500 bg-white border-b border-slate-200 uppercase tracking-wider">
+                                <tr>
+                                    <th class="px-6 py-4 font-semibold">Día</th>
+                                    <th class="px-6 py-4 font-semibold">Proyecto</th>
+                                    <th class="px-6 py-4 font-semibold">Tarea detectada</th>
+                                    <th class="px-6 py-4 font-semibold">Fuente</th>
+                                    <th class="px-6 py-4 font-semibold text-center">Horas Sugeridas</th>
+                                    <th class="px-6 py-4 font-semibold text-center">Estado</th>
+                                    <th class="px-6 py-4 font-semibold text-right">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <tr class="hover:bg-slate-50 transition-colors">
+                                    <td class="px-6 py-4 font-medium text-slate-900">Lunes</td>
+                                    <td class="px-6 py-4"><span class="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded font-medium">Cloud Migration</span></td>
+                                    <td class="px-6 py-4 text-slate-600">Revisión backlog sprint</td>
+                                    <td class="px-6 py-4 text-xs text-slate-400 flex items-center gap-1"><i class="fa-brands fa-jira"></i> + <i class="fa-regular fa-calendar"></i></td>
+                                    <td class="px-6 py-4 text-center font-bold text-slate-800">2,5 h</td>
+                                    <td class="px-6 py-4 text-center"><span class="bg-amber-100 text-amber-800 text-xs px-2.5 py-1 rounded-full font-medium border border-amber-200">Pendiente</span></td>
+                                    <td class="px-6 py-4 text-right"><button class="text-brand-600 hover:text-brand-800 font-medium text-xs bg-brand-50 px-3 py-1.5 rounded transition">Confirmar</button></td>
+                                </tr>
+                                <tr class="hover:bg-slate-50 transition-colors">
+                                    <td class="px-6 py-4 font-medium text-slate-900">Martes</td>
+                                    <td class="px-6 py-4"><span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded font-medium">Cybersecurity Audit</span></td>
+                                    <td class="px-6 py-4 text-slate-600">Reunión cliente + informe</td>
+                                    <td class="px-6 py-4 text-xs text-slate-400 flex items-center gap-1"><i class="fa-regular fa-calendar"></i> + Docs</td>
+                                    <td class="px-6 py-4 text-center font-bold text-slate-800">3,0 h</td>
+                                    <td class="px-6 py-4 text-center"><span class="bg-amber-100 text-amber-800 text-xs px-2.5 py-1 rounded-full font-medium border border-amber-200">Pendiente</span></td>
+                                    <td class="px-6 py-4 text-right"><button class="text-slate-500 hover:text-slate-800 font-medium text-xs border border-slate-200 px-3 py-1.5 rounded transition bg-white">Editar</button></td>
+                                </tr>
+                                <tr class="bg-emerald-50/30">
+                                    <td class="px-6 py-4 font-medium text-slate-900">Miércoles</td>
+                                    <td class="px-6 py-4"><span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded font-medium">Retail App</span></td>
+                                    <td class="px-6 py-4 text-slate-600">Desarrollo módulo login</td>
+                                    <td class="px-6 py-4 text-xs text-slate-400 flex items-center gap-1"><i class="fa-brands fa-jira"></i> Jira</td>
+                                    <td class="px-6 py-4 text-center font-bold text-slate-800">4,0 h</td>
+                                    <td class="px-6 py-4 text-center"><span class="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-1 rounded-full font-medium border border-emerald-200"><i class="fa-solid fa-check mr-1"></i> Confirmado</span></td>
+                                    <td class="px-6 py-4 text-right"><button class="text-slate-400 hover:text-slate-600 font-medium text-xs">Ver</button></td>
+                                </tr>
+                                <tr class="bg-emerald-50/30">
+                                    <td class="px-6 py-4 font-medium text-slate-900">Jueves</td>
+                                    <td class="px-6 py-4"><span class="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded font-medium">Cloud Migration</span></td>
+                                    <td class="px-6 py-4 text-slate-600">Testing y validación</td>
+                                    <td class="px-6 py-4 text-xs text-slate-400 flex items-center gap-1"><i class="fa-brands fa-jira"></i> Jira</td>
+                                    <td class="px-6 py-4 text-center font-bold text-slate-800">3,5 h</td>
+                                    <td class="px-6 py-4 text-center"><span class="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-1 rounded-full font-medium border border-emerald-200"><i class="fa-solid fa-check mr-1"></i> Confirmado</span></td>
+                                    <td class="px-6 py-4 text-right"><button class="text-slate-400 hover:text-slate-600 font-medium text-xs">Ver</button></td>
+                                </tr>
+                                <tr class="bg-brand-50/30">
+                                    <td class="px-6 py-4 font-medium text-slate-900">Viernes</td>
+                                    <td class="px-6 py-4"><span class="bg-slate-100 text-slate-800 text-xs px-2 py-1 rounded font-medium border border-slate-200">Internal</span></td>
+                                    <td class="px-6 py-4 text-slate-600">Reporte semanal</td>
+                                    <td class="px-6 py-4 text-xs text-slate-400 flex items-center gap-1"><i class="fa-solid fa-bolt text-brand-500"></i> SmartOps</td>
+                                    <td class="px-6 py-4 text-center font-bold text-slate-800">0,5 h</td>
+                                    <td class="px-6 py-4 text-center"><span class="bg-brand-100 text-brand-800 text-xs px-2.5 py-1 rounded-full font-medium border border-brand-200">Sugerido auto.</span></td>
+                                    <td class="px-6 py-4 text-right"><button class="text-brand-600 hover:text-brand-800 font-medium text-xs bg-brand-50 px-3 py-1.5 rounded transition">Confirmar</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="p-4 bg-white border-t border-slate-200 flex justify-between items-center">
+                        <button class="text-sm font-medium text-slate-600 hover:text-slate-900 border border-slate-300 px-4 py-2 rounded-lg bg-white shadow-sm transition">Editar horas manuales</button>
+                        <button class="text-sm font-medium text-white bg-slate-900 hover:bg-slate-800 px-6 py-2 rounded-lg shadow transition flex items-center gap-2">
+                            <i class="fa-solid fa-check-double"></i> Confirmar Todo
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANTALLA 5: GENERADOR DE REPORTES -->
+            <div id="view-reports" class="screen view-content max-w-4xl mx-auto space-y-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-900">Generador de Reportes</h2>
+                    <p class="text-slate-500 mt-1">Documento consolidado listos para enviar al manager o cliente.</p>
+                </div>
+
+                <div class="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-lg flex items-start gap-3 text-sm shadow-sm">
+                    <i class="fa-solid fa-wand-magic-sparkles text-xl mt-0.5 text-blue-600"></i>
+                    <div>
+                        <p class="font-bold">Reporte generado automáticamente</p>
+                        <p>Creado a partir del análisis de tus tickets en Jira cerrados, actualizaciones del equipo y eventos de Calendar de esta semana.</p>
+                    </div>
+                </div>
+
+                <!-- Documento estilo "Papel" -->
+                <div class="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
+                    <!-- Header Mail -->
+                    <div class="bg-slate-100 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+                        <div>
+                            <p class="text-xs text-slate-500 uppercase tracking-wider font-bold mb-1">Borrador Listo</p>
+                            <h3 class="font-bold text-slate-800 text-lg">Reporte semanal - Proyecto Cloud Migration</h3>
+                        </div>
+                        <div class="flex gap-2">
+                            <div class="w-3 h-3 rounded-full bg-slate-300"></div>
+                            <div class="w-3 h-3 rounded-full bg-slate-300"></div>
+                            <div class="w-3 h-3 rounded-full bg-slate-300"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Cuerpo del Reporte -->
+                    <div class="p-8 space-y-6 text-sm text-slate-700">
+                        <section>
+                            <h4 class="font-bold text-slate-900 text-base border-b pb-2 mb-3">1. Resumen Semanal</h4>
+                            <p>Semana centrada en la estabilización de infraestructura y resolución de tickets críticos. Avance del sprint actual: 80% completado.</p>
+                        </section>
+
+                        <section>
+                            <h4 class="font-bold text-slate-900 text-base border-b pb-2 mb-3 flex items-center gap-2">
+                                <i class="fa-solid fa-check text-emerald-500"></i> Tareas completadas
+                            </h4>
+                            <ul class="list-disc pl-5 space-y-1.5">
+                                <li>Configuración inicial del entorno AWS para entorno pre-producción.</li>
+                                <li>Revisión y fix de 4 incidencias críticas reportadas por QA.</li>
+                                <li>Validación técnica del esquema de base de datos con cliente.</li>
+                            </ul>
+                        </section>
+
+                        <section class="bg-rose-50 p-4 rounded-lg border border-rose-100">
+                            <h4 class="font-bold text-rose-800 text-base mb-2 flex items-center gap-2">
+                                <i class="fa-solid fa-lock"></i> Bloqueos detectados
+                            </h4>
+                            <ul class="list-disc pl-5 space-y-1 text-rose-700">
+                                <li>Pendiente aprobación formal de accesos VPN por parte del equipo IT cliente.</li>
+                                <li>Exceso de reuniones de coordinación (3 horas no planificadas) que retrasaron desarrollo core.</li>
+                            </ul>
+                        </section>
+
+                        <section>
+                            <h4 class="font-bold text-slate-900 text-base border-b pb-2 mb-3 flex items-center gap-2">
+                                <i class="fa-solid fa-arrow-right text-brand-500"></i> Próximos pasos
+                            </h4>
+                            <ul class="list-disc pl-5 space-y-1.5">
+                                <li>Cerrar backlog técnico del Sprint 12.</li>
+                                <li>Validar calendario definitivo de migración nocturna.</li>
+                            </ul>
+                        </section>
+
+                        <section>
+                            <h4 class="font-bold text-slate-900 text-base border-b pb-2 mb-3 flex items-center gap-2">
+                                <i class="fa-solid fa-triangle-exclamation text-amber-500"></i> Riesgos y Recomendaciones
+                            </h4>
+                            <p>Riesgo moderado de retraso en hito #3 por demoras en acceso VPN. Recomendación: Escalar petición al director de proyecto cliente el lunes a primera hora.</p>
+                        </section>
+                    </div>
+                    
+                    <!-- Footer / Acciones -->
+                    <div class="bg-slate-50 p-4 border-t border-slate-200 flex flex-wrap gap-3 justify-end items-center relative">
+                        <!-- AI Assistant Overlay (Hidden by default) -->
+                        <div id="ai-assistant-panel" class="hidden absolute bottom-full mb-4 right-0 w-96 bg-white border border-brand-200 rounded-xl shadow-2xl p-4 z-10">
+                            <div class="flex justify-between items-center mb-3 border-b border-slate-100 pb-2">
+                                <h5 class="font-bold text-slate-800 flex items-center gap-2">
+                                    <i class="fa-solid fa-wand-magic-sparkles text-brand-500"></i> SmartOps AI Assistant
+                                </h5>
+                                <button onclick="toggleAIAssistant()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
+                            <p class="text-xs text-slate-500 mb-3">¿Cómo quieres editar este reporte antes de enviarlo?</p>
+                            
+                            <div class="space-y-2 mb-4">
+                                <button onclick="callGemini('Haz que este reporte suene más profesional y ejecutivo.')" class="w-full text-left text-sm px-3 py-2 bg-slate-50 hover:bg-brand-50 hover:text-brand-700 rounded border border-slate-200 transition-colors">
+                                    <i class="fa-solid fa-user-tie mr-2 text-slate-400"></i> Tono más ejecutivo
+                                </button>
+                                <button onclick="callGemini('Resume este reporte para que sea más corto y directo.')" class="w-full text-left text-sm px-3 py-2 bg-slate-50 hover:bg-brand-50 hover:text-brand-700 rounded border border-slate-200 transition-colors">
+                                    <i class="fa-solid fa-compress mr-2 text-slate-400"></i> Hacerlo más conciso
+                                </button>
+                                <button onclick="callGemini('Enfoca este reporte en los riesgos y los bloqueos actuales.')" class="w-full text-left text-sm px-3 py-2 bg-slate-50 hover:bg-brand-50 hover:text-brand-700 rounded border border-slate-200 transition-colors">
+                                    <i class="fa-solid fa-triangle-exclamation mr-2 text-slate-400"></i> Resaltar riesgos
+                                </button>
+                            </div>
+
+                            <div class="relative">
+                                <input type="text" id="ai-custom-prompt" placeholder="Escribe otra instrucción..." class="w-full pl-3 pr-10 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                                <button onclick="callGeminiCustom()" class="absolute right-2 top-2 text-brand-600 hover:text-brand-800">
+                                    <i class="fa-solid fa-paper-plane"></i>
+                                </button>
+                            </div>
+
+                            <!-- Loading indicator -->
+                            <div id="ai-loading" class="hidden mt-3 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-circle-notch fa-spin text-brand-500"></i> Reestructurando reporte...
+                            </div>
+                        </div>
+
+                        <button class="text-sm font-medium text-slate-600 hover:text-slate-900 flex items-center gap-2 px-4 py-2">
+                            <i class="fa-regular fa-copy"></i> Copiar reporte
+                        </button>
+                        <button class="text-sm font-medium text-slate-600 hover:text-slate-900 flex items-center gap-2 px-4 py-2 border-r border-slate-300 pr-6">
+                            <i class="fa-solid fa-file-pdf"></i> Exportar PDF
+                        </button>
+                        <button onclick="toggleAIAssistant()" class="text-sm font-medium bg-white border border-brand-300 text-brand-700 hover:bg-brand-50 px-4 py-2 rounded-lg shadow-sm transition ml-2 flex items-center gap-2">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Editar con IA
+                        </button>
+                        <button class="text-sm font-bold bg-brand-600 hover:bg-brand-700 text-white px-6 py-2 rounded-lg shadow-md transition flex items-center gap-2">
+                            <i class="fa-regular fa-paper-plane"></i> Enviar al manager
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANTALLA 6: DASHBOARD CARGA LABORAL -->
+            <div id="view-workload" class="screen view-content max-w-6xl mx-auto space-y-6">
+                <div class="flex justify-between items-end mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-900">Análisis de Carga Laboral</h2>
+                        <p class="text-slate-500 mt-1">Detección temprana de picos de trabajo y prevención de burnout.</p>
+                    </div>
+                </div>
+
+                <!-- Alerta principal (Rojo) -->
+                <div class="bg-rose-50 border-l-4 border-rose-500 p-4 rounded-r-lg shadow-sm flex items-start gap-3">
+                    <i class="fa-solid fa-triangle-exclamation text-rose-500 text-xl mt-0.5"></i>
+                    <div>
+                        <h3 class="font-bold text-rose-800">Riesgo de sobrecarga detectado</h3>
+                        <p class="text-sm text-rose-700 mt-1">Este empleado supera el umbral recomendado de 45 horas semanales (estimación actual: 54h). Se recomienda revisar prioridades, reducir reuniones y redistribuir tareas críticas.</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center">
+                        <p class="text-xs font-bold text-slate-500 uppercase tracking-wide">Horas Estimadas</p>
+                        <p class="text-3xl font-bold text-rose-600 mt-1">54 h</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center">
+                        <p class="text-xs font-bold text-slate-500 uppercase tracking-wide">Tareas Administrativas</p>
+                        <p class="text-3xl font-bold text-amber-500 mt-1">32%</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center flex flex-col justify-center">
+                        <div class="flex justify-between px-2 text-sm mb-1"><span class="text-slate-500">Reuniones</span><span class="font-bold">14</span></div>
+                        <div class="flex justify-between px-2 text-sm"><span class="text-slate-500">Tareas críticas</span><span class="font-bold text-rose-500">7</span></div>
+                    </div>
+                    <div class="bg-slate-900 p-4 rounded-xl shadow-md text-center text-white">
+                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wide">Focus Time Disp.</p>
+                        <p class="text-3xl font-bold mt-1 text-emerald-400">9 h</p>
+                        <p class="text-[10px] text-slate-400 mt-1">Insuficiente para rol técnico</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Gráfico Diario -->
+                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <h3 class="font-bold text-slate-800 mb-4">Horas trabajadas por día</h3>
+                        <div class="h-64"><canvas id="chart-daily-workload"></canvas></div>
+                    </div>
+                    <!-- Gráfico Distribución -->
+                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <h3 class="font-bold text-slate-800 mb-4">Distribución del tiempo</h3>
+                        <div class="h-64 flex items-center justify-center"><canvas id="chart-distribution"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANTALLA 7: ALERTAS -->
+            <div id="view-alerts" class="screen view-content max-w-5xl mx-auto space-y-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-900">Alertas y Recomendaciones Activas</h2>
+                    <p class="text-slate-500 mt-1">Acciones sugeridas por SmartOps para optimizar tu tiempo y carga.</p>
+                </div>
+
+                <div class="space-y-4">
+                    <!-- Alerta 1 -->
+                    <div class="bg-white rounded-xl border border-rose-200 shadow-sm overflow-hidden flex flex-col sm:flex-row">
+                        <div class="bg-rose-500 w-full sm:w-2 flex-shrink-0 h-2 sm:h-auto"></div>
+                        <div class="p-5 flex-1 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                            <div>
+                                <span class="bg-rose-100 text-rose-800 text-[10px] uppercase font-bold px-2 py-0.5 rounded tracking-wide">Crítico</span>
+                                <h3 class="font-bold text-slate-900 text-lg mt-1">Riesgo de sobrecarga</h3>
+                                <p class="text-sm text-slate-600 mt-1">Laura tiene 54 horas estimadas esta semana (+14h sobre base).</p>
+                                <div class="mt-3 bg-slate-50 border border-slate-200 p-3 rounded-lg flex items-start gap-2">
+                                    <i class="fa-solid fa-lightbulb text-amber-500 mt-0.5"></i>
+                                    <div>
+                                        <p class="text-xs font-bold text-slate-700 uppercase tracking-wide">Acción Recomendada SmartOps</p>
+                                        <p class="text-sm text-slate-800">Redistribuir tareas del "Proyecto Cloud Migration" al equipo de apoyo.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-2 w-full sm:w-auto">
+                                <button class="w-full sm:w-auto text-sm font-medium bg-slate-900 text-white hover:bg-slate-800 px-4 py-2 rounded-lg transition shadow">Reasignar tarea</button>
+                                <button class="w-full sm:w-auto text-sm font-medium border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg transition">Programar 1:1</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Alerta 2 -->
+                    <div class="bg-white rounded-xl border border-amber-200 shadow-sm overflow-hidden flex flex-col sm:flex-row">
+                        <div class="bg-amber-400 w-full sm:w-2 flex-shrink-0 h-2 sm:h-auto"></div>
+                        <div class="p-5 flex-1 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                            <div>
+                                <span class="bg-amber-100 text-amber-800 text-[10px] uppercase font-bold px-2 py-0.5 rounded tracking-wide">Aviso</span>
+                                <h3 class="font-bold text-slate-900 text-lg mt-1">Exceso de reuniones</h3>
+                                <p class="text-sm text-slate-600 mt-1">Se han detectado 11 horas de reuniones, 4 de ellas duplicadas o solapadas.</p>
+                                <div class="mt-3 bg-slate-50 border border-slate-200 p-3 rounded-lg flex items-start gap-2">
+                                    <i class="fa-solid fa-lightbulb text-amber-500 mt-0.5"></i>
+                                    <div>
+                                        <p class="text-xs font-bold text-slate-700 uppercase tracking-wide">Acción Recomendada SmartOps</p>
+                                        <p class="text-sm text-slate-800">Cancelar o fusionar reuniones repetidas de "Sync de equipo".</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-2 w-full sm:w-auto">
+                                <button class="w-full sm:w-auto text-sm font-medium bg-brand-600 text-white hover:bg-brand-700 px-4 py-2 rounded-lg transition shadow">Aplicar recomendación</button>
+                                <button class="w-full sm:w-auto text-sm font-medium border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg transition">Marcar como revisado</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Alerta 3 -->
+                    <div class="bg-white rounded-xl border border-blue-200 shadow-sm overflow-hidden flex flex-col sm:flex-row">
+                        <div class="bg-blue-400 w-full sm:w-2 flex-shrink-0 h-2 sm:h-auto"></div>
+                        <div class="p-5 flex-1 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                            <div>
+                                <span class="bg-blue-100 text-blue-800 text-[10px] uppercase font-bold px-2 py-0.5 rounded tracking-wide">Eficiencia</span>
+                                <h3 class="font-bold text-slate-900 text-lg mt-1">Tareas administrativas elevadas</h3>
+                                <p class="text-sm text-slate-600 mt-1">El 35% del tiempo semanal se dedica a tareas de bajo valor añadido.</p>
+                                <div class="mt-3 bg-slate-50 border border-slate-200 p-3 rounded-lg flex items-start gap-2">
+                                    <i class="fa-solid fa-lightbulb text-amber-500 mt-0.5"></i>
+                                    <div>
+                                        <p class="text-xs font-bold text-slate-700 uppercase tracking-wide">Acción Recomendada SmartOps</p>
+                                        <p class="text-sm text-slate-800">Automatizar reporte mensual de horas y simplificar seguimiento de tickets.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-2 w-full sm:w-auto">
+                                <button class="w-full sm:w-auto text-sm font-medium bg-brand-600 text-white hover:bg-brand-700 px-4 py-2 rounded-lg transition shadow">Configurar automatización</button>
+                                <button class="w-full sm:w-auto text-sm font-medium border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg transition">Marcar como revisado</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANTALLA 8: FEEDBACK SEMANAL -->
+            <div id="view-feedback" class="screen view-content max-w-3xl mx-auto space-y-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-900">Feedback Semanal</h2>
+                    <p class="text-slate-500 mt-1">Ayúdanos a ajustar tu carga de trabajo y mejorar los procesos internos.</p>
+                </div>
+
+                <div class="bg-brand-50 border border-brand-200 p-4 rounded-xl text-brand-800 text-sm flex items-start gap-3">
+                    <i class="fa-solid fa-shield-halved text-brand-600 mt-1 text-lg"></i>
+                    <p><strong>Privacidad garantizada:</strong> Tu feedback se utiliza exclusivamente para mejorar procesos y reducir la carga laboral del equipo, no para evaluar rendimiento individual. Los datos se agregan a nivel de proyecto.</p>
+                </div>
+
+                <form onsubmit="submitFeedback(event)" class="bg-white p-8 rounded-xl border border-slate-200 shadow-sm space-y-8">
+                    
+                    <!-- Q1 -->
+                    <div>
+                        <label class="block font-bold text-slate-800 mb-2">1. ¿Cómo valorarías tu carga laboral esta semana?</label>
+                        <div class="flex justify-between text-xs text-slate-400 mb-1 px-1"><span>Muy baja (1)</span><span>Equilibrada (5)</span><span>Extrema (10)</span></div>
+                        <input type="range" min="1" max="10" value="8" class="w-full accent-brand-600 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                    </div>
+
+                    <!-- Q2 -->
+                    <div>
+                        <label class="block font-bold text-slate-800 mb-3">2. ¿Cuánto tiempo has dedicado a tareas administrativas manuales?</label>
+                        <div class="flex flex-wrap gap-4">
+                            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="admin_time" class="w-4 h-4 text-brand-600 focus:ring-brand-500"> <span class="text-sm">Menos de 2h</span></label>
+                            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="admin_time" class="w-4 h-4 text-brand-600 focus:ring-brand-500" checked> <span class="text-sm">Entre 2h y 4h</span></label>
+                            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="admin_time" class="w-4 h-4 text-brand-600 focus:ring-brand-500"> <span class="text-sm">Más de 4h</span></label>
+                        </div>
+                    </div>
+
+                    <!-- Q3 -->
+                    <div>
+                        <label class="block font-bold text-slate-800 mb-3">3. ¿Las automatizaciones de SmartOps te han ahorrado tiempo esta semana?</label>
+                        <div class="flex flex-wrap gap-4">
+                            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="saved_time" class="w-4 h-4 text-brand-600 focus:ring-brand-500" checked> <span class="text-sm">Sí, bastante</span></label>
+                            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="saved_time" class="w-4 h-4 text-brand-600 focus:ring-brand-500"> <span class="text-sm">Parcialmente</span></label>
+                            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="saved_time" class="w-4 h-4 text-brand-600 focus:ring-brand-500"> <span class="text-sm">No</span></label>
+                        </div>
+                    </div>
+
+                    <!-- Q4 -->
+                    <div>
+                        <label class="block font-bold text-slate-800 mb-3">4. ¿Te has sentido sobrecargado/a o estresado/a?</label>
+                        <div class="flex gap-6">
+                            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="stress" class="w-4 h-4 text-brand-600 focus:ring-brand-500" checked> <span class="text-sm">Sí</span></label>
+                            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="stress" class="w-4 h-4 text-brand-600 focus:ring-brand-500"> <span class="text-sm">No</span></label>
+                        </div>
+                    </div>
+
+                    <!-- Q5: eNPS -->
+                    <div class="pt-4 border-t border-slate-100">
+                        <label class="block font-bold text-slate-800 mb-2">5. eNPS: En una escala del 0 al 10, ¿recomendarías InnoCorp como lugar para trabajar?</label>
+                        <div class="flex justify-between mt-4">
+                            <button type="button" class="w-8 h-8 rounded-full border border-slate-300 hover:bg-slate-100 text-sm font-medium transition">0</button>
+                            <button type="button" class="w-8 h-8 rounded-full border border-slate-300 hover:bg-slate-100 text-sm font-medium transition">1</button>
+                            <button type="button" class="w-8 h-8 rounded-full border border-slate-300 hover:bg-slate-100 text-sm font-medium transition">2</button>
+                            <button type="button" class="w-8 h-8 rounded-full border border-slate-300 hover:bg-slate-100 text-sm font-medium transition">3</button>
+                            <button type="button" class="w-8 h-8 rounded-full border border-slate-300 hover:bg-slate-100 text-sm font-medium transition">4</button>
+                            <button type="button" class="w-8 h-8 rounded-full border border-slate-300 hover:bg-slate-100 text-sm font-medium transition">5</button>
+                            <button type="button" class="w-8 h-8 rounded-full border border-slate-300 hover:bg-slate-100 text-sm font-medium transition">6</button>
+                            <button type="button" class="w-8 h-8 rounded-full bg-brand-600 text-white border border-brand-600 shadow text-sm font-medium transition">7</button>
+                            <button type="button" class="w-8 h-8 rounded-full border border-slate-300 hover:bg-slate-100 text-sm font-medium transition">8</button>
+                            <button type="button" class="w-8 h-8 rounded-full border border-slate-300 hover:bg-slate-100 text-sm font-medium transition">9</button>
+                            <button type="button" class="w-8 h-8 rounded-full border border-slate-300 hover:bg-slate-100 text-sm font-medium transition">10</button>
+                        </div>
+                    </div>
+
+                    <div class="pt-6 flex items-center justify-between">
+                        <span id="feedback-success" class="text-emerald-600 text-sm font-bold opacity-0 transition-opacity"><i class="fa-solid fa-check-circle"></i> ¡Enviado correctamente!</span>
+                        <button type="submit" class="bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-8 rounded-lg shadow-md transition-all">
+                            Enviar feedback
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- PANTALLA 9: VISTA MANAGER -->
+            <div id="view-manager" class="screen view-content max-w-6xl mx-auto space-y-6">
+                <div class="flex justify-between items-end mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-900">Vista Manager: Equipo y Proyectos</h2>
+                        <p class="text-slate-500 mt-1">Visión agregada de la salud operativa. <span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-xs font-bold ml-2">Orientado a gestión, no a control individual</span></p>
+                    </div>
+                    <button class="text-sm bg-white border border-slate-300 px-4 py-2 rounded shadow-sm text-slate-700 hover:bg-slate-50">Descargar reporte</button>
+                </div>
+
+                <!-- KPIs Equipo -->
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center">
+                        <p class="text-xs font-bold text-slate-500 uppercase">Carga media</p>
+                        <p class="text-2xl font-bold text-slate-800 mt-1">48 h</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border-t-4 border-t-rose-500 border-slate-200 shadow-sm text-center">
+                        <p class="text-xs font-bold text-slate-500 uppercase">En riesgo alto</p>
+                        <p class="text-2xl font-bold text-rose-600 mt-1">3 <span class="text-sm font-normal text-slate-400">personas</span></p>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center">
+                        <p class="text-xs font-bold text-slate-500 uppercase">Tiempo admin.</p>
+                        <p class="text-2xl font-bold text-slate-800 mt-1">26%</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center">
+                        <p class="text-xs font-bold text-slate-500 uppercase">Reuniones/sem.</p>
+                        <p class="text-2xl font-bold text-amber-600 mt-1">42</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border-b-4 border-b-emerald-500 border-slate-200 shadow-sm text-center bg-slate-900">
+                        <p class="text-xs font-bold text-slate-400 uppercase">NPS Equipo</p>
+                        <p class="text-2xl font-bold text-emerald-400 mt-1">+50</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Manager AI Assistant -->
+                    <div class="bg-white rounded-xl border border-brand-300 shadow-md lg:col-span-3 flex flex-col h-[400px]">
+                        <div class="p-4 border-b border-slate-200 bg-brand-50 flex justify-between items-center rounded-t-xl">
+                            <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                                <i class="fa-solid fa-wand-magic-sparkles text-brand-600"></i> SmartOps Manager AI Assistant
+                            </h3>
+                            <span class="text-xs text-brand-700 font-medium">Insights sobre la carga de tu equipo</span>
+                        </div>
+                        
+                        <!-- Chat History Area -->
+                        <div id="manager-chat-history" class="flex-1 p-4 overflow-y-auto bg-slate-50 space-y-4">
+                            <!-- Initial Greeting -->
+                            <div class="flex items-start gap-3">
+                                <div class="w-8 h-8 bg-brand-500 rounded-full flex items-center justify-center text-white flex-shrink-0">
+                                    <i class="fa-solid fa-robot text-xs"></i>
+                                </div>
+                                <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm text-sm text-slate-700 max-w-[80%]">
+                                    Hola Manager. Puedo analizar los datos de carga de tu equipo (proyectos Cloud Migration, Cybersecurity Audit y Retail App) y sugerirte planes de acción. ¿Qué necesitas saber?
+                                    <div class="mt-3 flex flex-wrap gap-2">
+                                        <button onclick="sendManagerPrompt('Resume los riesgos principales de sobrecarga de esta semana.')" class="text-xs bg-brand-50 border border-brand-200 text-brand-700 px-2 py-1 rounded hover:bg-brand-100 transition">Resume riesgos</button>
+                                        <button onclick="sendManagerPrompt('¿Qué acciones recomiendas para el equipo de Cloud Migration?')" class="text-xs bg-brand-50 border border-brand-200 text-brand-700 px-2 py-1 rounded hover:bg-brand-100 transition">Acciones Cloud Migration</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Chat Input Area -->
+                        <div class="p-4 border-t border-slate-200 bg-white rounded-b-xl">
+                            <div class="relative flex items-center">
+                                <input type="text" id="manager-chat-input" placeholder="Pregunta sobre la carga del equipo, riesgos, etc..." class="w-full pl-4 pr-12 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 shadow-sm text-sm" onkeypress="handleManagerChatKeyPress(event)">
+                                <button onclick="handleManagerChatSubmit()" class="absolute right-2 top-2 bottom-2 w-10 h-10 bg-brand-600 hover:bg-brand-700 text-white rounded-lg shadow transition-colors flex items-center justify-center">
+                                    <i class="fa-solid fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Tabla Proyectos -->
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden lg:col-span-2">
+                        <div class="p-4 border-b border-slate-200 bg-slate-50 font-bold text-slate-800 text-sm">Estado por Proyectos / Células</div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm text-left">
+                                <thead class="text-xs text-slate-500 bg-white border-b border-slate-100">
+                                    <tr>
+                                        <th class="px-4 py-3 font-semibold">Proyecto</th>
+                                        <th class="px-4 py-3 font-semibold">Carga Media</th>
+                                        <th class="px-4 py-3 font-semibold">Riesgo Burnout</th>
+                                        <th class="px-4 py-3 font-semibold">Recomendación SmartOps</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    <tr class="bg-rose-50/30">
+                                        <td class="px-4 py-4 font-bold text-slate-800">Cloud Migration</td>
+                                        <td class="px-4 py-4 text-rose-600 font-bold">52 h/sem</td>
+                                        <td class="px-4 py-4"><span class="bg-rose-100 text-rose-800 text-xs px-2 py-1 rounded font-bold">Alto</span></td>
+                                        <td class="px-4 py-4 text-xs text-slate-600">Redistribuir tareas críticas; ampliar equipo.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-4 font-bold text-slate-800">Cybersecurity Audit</td>
+                                        <td class="px-4 py-4 text-amber-600 font-bold">46 h/sem</td>
+                                        <td class="px-4 py-4"><span class="bg-amber-100 text-amber-800 text-xs px-2 py-1 rounded font-bold">Medio</span></td>
+                                        <td class="px-4 py-4 text-xs text-slate-600">Revisar y cancelar reuniones solapadas.</td>
+                                    </tr>
+                                    <tr class="bg-emerald-50/30">
+                                        <td class="px-4 py-4 font-bold text-slate-800">Retail App Core</td>
+                                        <td class="px-4 py-4 text-emerald-600 font-bold">42 h/sem</td>
+                                        <td class="px-4 py-4"><span class="bg-emerald-100 text-emerald-800 text-xs px-2 py-1 rounded font-bold">Bajo</span></td>
+                                        <td class="px-4 py-4 text-xs text-slate-600">Mantener seguimiento estándar.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Panel Recomendaciones Manager -->
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm">
+                        <div class="p-4 border-b border-slate-200 bg-slate-50 font-bold text-slate-800 text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-list-check text-brand-600"></i> Plan de Acción Manager
+                        </div>
+                        <div class="p-4 space-y-3 text-sm">
+                            <label class="flex items-start gap-3 cursor-pointer group">
+                                <input type="checkbox" class="mt-1 w-4 h-4 text-brand-600 rounded">
+                                <span class="group-hover:text-brand-600 transition">Redistribuir tareas críticas (Cloud Migration)</span>
+                            </label>
+                            <label class="flex items-start gap-3 cursor-pointer group">
+                                <input type="checkbox" class="mt-1 w-4 h-4 text-brand-600 rounded">
+                                <span class="group-hover:text-brand-600 transition">Cancelar reuniones duplicadas equipo Ciberseguridad</span>
+                            </label>
+                            <label class="flex items-start gap-3 cursor-pointer group">
+                                <input type="checkbox" class="mt-1 w-4 h-4 text-brand-600 rounded">
+                                <span class="group-hover:text-brand-600 transition">Revisar deadlines poco realistas con Cliente X</span>
+                            </label>
+                            <label class="flex items-start gap-3 cursor-pointer group">
+                                <input type="checkbox" class="mt-1 w-4 h-4 text-brand-600 rounded" checked>
+                                <span class="line-through text-slate-400">Activar conversación 1:1 con Laura Gómez</span>
+                            </label>
+                            <label class="flex items-start gap-3 cursor-pointer group">
+                                <input type="checkbox" class="mt-1 w-4 h-4 text-brand-600 rounded">
+                                <span class="group-hover:text-brand-600 transition">Reforzar equipo en proyecto crítico (Dev Ops)</span>
+                            </label>
+                        </div>
+                        <div class="p-4 border-t border-slate-100 bg-slate-50 rounded-b-xl">
+                            <button class="w-full bg-slate-900 text-white py-2 text-sm font-medium rounded-lg hover:bg-slate-800 transition">Aplicar seleccionadas</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANTALLA 10: RESULTADOS DEL PILOTO -->
+            <div id="view-pilot" class="screen view-content max-w-5xl mx-auto space-y-6">
+                <div class="text-center mb-8">
+                    <span class="bg-brand-100 text-brand-800 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full mb-3 inline-block">Métricas Académicas</span>
+                    <h2 class="text-3xl font-bold text-slate-900">Resultados del Piloto MVP</h2>
+                    <p class="text-slate-500 mt-2">Evaluación del impacto de SmartOps tras 3 semanas de prueba simulada.</p>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-900 text-white uppercase text-xs tracking-wider">
+                            <tr>
+                                <th class="px-6 py-4 font-semibold">Métrica Evaluada</th>
+                                <th class="px-6 py-4 font-semibold text-right">Situación Inicial</th>
+                                <th class="px-6 py-4 font-semibold bg-brand-800 text-right">Resultado tras MVP</th>
+                                <th class="px-6 py-4 font-semibold text-right">Objetivo</th>
+                                <th class="px-6 py-4 font-semibold text-center">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-6 py-4 font-bold text-slate-800">Tiempo administrativo</td>
+                                <td class="px-6 py-4 text-slate-500 text-right">3,1 h/semana</td>
+                                <td class="px-6 py-4 font-bold text-brand-600 bg-brand-50/30 text-right">1,8 h/semana</td>
+                                <td class="px-6 py-4 text-slate-600 text-right">reducción ≥30%</td>
+                                <td class="px-6 py-4 text-center"><span class="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs font-bold"><i class="fa-solid fa-check mr-1"></i> Cumplido</span></td>
+                            </tr>
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-6 py-4 font-bold text-slate-800">Reducción del tiempo administrativo</td>
+                                <td class="px-6 py-4 text-slate-500 text-right">N/A</td>
+                                <td class="px-6 py-4 font-bold text-brand-600 bg-brand-50/30 text-right">40%</td>
+                                <td class="px-6 py-4 text-slate-600 text-right">≥30%</td>
+                                <td class="px-6 py-4 text-center"><span class="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs font-bold"><i class="fa-solid fa-check mr-1"></i> Cumplido</span></td>
+                            </tr>
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-6 py-4 font-bold text-slate-800">Horas trabajadas por semana</td>
+                                <td class="px-6 py-4 text-slate-500 text-right">54 h</td>
+                                <td class="px-6 py-4 font-bold text-brand-600 bg-brand-50/30 text-right">44 h</td>
+                                <td class="px-6 py-4 text-slate-600 text-right">≤45 h</td>
+                                <td class="px-6 py-4 text-center"><span class="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs font-bold"><i class="fa-solid fa-check mr-1"></i> Cumplido</span></td>
+                            </tr>
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-6 py-4 font-bold text-slate-800">Satisfacción laboral</td>
+                                <td class="px-6 py-4 text-slate-500 text-right">35</td>
+                                <td class="px-6 py-4 font-bold text-brand-600 bg-brand-50/30 text-right">60</td>
+                                <td class="px-6 py-4 text-slate-600 text-right">≥50</td>
+                                <td class="px-6 py-4 text-center"><span class="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs font-bold"><i class="fa-solid fa-check mr-1"></i> Cumplido</span></td>
+                            </tr>
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-6 py-4 font-bold text-slate-800">Intención de abandono</td>
+                                <td class="px-6 py-4 text-slate-500 text-right">20%</td>
+                                <td class="px-6 py-4 font-bold text-brand-600 bg-brand-50/30 text-right">13%</td>
+                                <td class="px-6 py-4 text-slate-600 text-right">&lt;15%</td>
+                                <td class="px-6 py-4 text-center"><span class="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs font-bold"><i class="fa-solid fa-check mr-1"></i> Cumplido</span></td>
+                            </tr>
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-6 py-4 font-bold text-slate-800">Adopción del MVP</td>
+                                <td class="px-6 py-4 text-slate-500 text-right">N/A</td>
+                                <td class="px-6 py-4 font-bold text-brand-600 bg-brand-50/30 text-right">90%</td>
+                                <td class="px-6 py-4 text-slate-600 text-right">≥80%</td>
+                                <td class="px-6 py-4 text-center"><span class="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs font-bold"><i class="fa-solid fa-check mr-1"></i> Cumplido</span></td>
+                            </tr>
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-6 py-4 font-bold text-slate-800">NPS del MVP</td>
+                                <td class="px-6 py-4 text-slate-500 text-right">N/A</td>
+                                <td class="px-6 py-4 font-bold text-brand-600 bg-brand-50/30 text-right">+50</td>
+                                <td class="px-6 py-4 text-slate-600 text-right">≥50</td>
+                                <td class="px-6 py-4 text-center"><span class="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs font-bold"><i class="fa-solid fa-check mr-1"></i> Cumplido</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="mt-8 bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-6 rounded-2xl shadow-lg text-center border-4 border-emerald-400">
+                    <h3 class="text-lg font-medium text-emerald-100 uppercase tracking-widest mb-2">Conclusión del Proyecto Académico</h3>
+                    <p class="text-3xl font-bold drop-shadow-md">Decisión: Perseverar e iterar antes del escalado completo.</p>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // Variables globales para los gráficos (para poder destruirlos/recrearlos si hace falta)
+        let chartWeeklyInstance = null;
+        let chartDailyInstance = null;
+        let chartDistInstance = null;
+        let chartsInitialized = false;
+
+        // --- FUNCIONES DE NAVEGACIÓN Y CHARTS EXISTENTES ---
+        function login(e) {
+            if(e) e.preventDefault();
+            
+            const loginScreen = document.getElementById('screen-login');
+            const appShell = document.getElementById('app-shell');
+            
+            // Forzar la ocultación del login
+            loginScreen.classList.remove('active');
+            loginScreen.style.display = 'none';
+            
+            // Forzar la aparición de la app principal
+            appShell.classList.remove('hidden');
+            appShell.style.display = 'flex';
+            
+            // Cargar la vista del dashboard
+            navigate('dashboard'); 
+        }
+
+        // Función principal de navegación entre pantallas
+        function navigate(viewId) {
+            // 1. Ocultar todas las vistas
+            const views = document.querySelectorAll('.view-content');
+            views.forEach(v => {
+                v.classList.remove('active');
+                v.style.display = 'none'; // Asegurar ocultación para Chart.js
+            });
+
+            // 2. Mostrar la vista seleccionada
+            const targetView = document.getElementById('view-' + viewId);
+            if(targetView) {
+                targetView.style.display = 'block';
+                // Delay the active class slightly to trigger CSS animation
+                setTimeout(() => targetView.classList.add('active'), 10);
+            }
+
+            // 3. Actualizar estado de los botones del sidebar
+            const navBtns = document.querySelectorAll('.nav-btn');
+            navBtns.forEach(btn => {
+                btn.classList.remove('bg-brand-600', 'text-white');
+                btn.classList.add('text-slate-300');
+            });
+            
+            const activeBtn = document.getElementById('nav-' + viewId);
+            if(activeBtn) {
+                activeBtn.classList.remove('text-slate-300');
+                activeBtn.classList.add('bg-brand-600', 'text-white');
+            }
+
+            // 4. Inicializar gráficos solo cuando la vista que los contiene es visible
+            if ((viewId === 'dashboard' || viewId === 'workload') && !chartsInitialized) {
+                setTimeout(initCharts, 100); // Delay para que el DOM esté listo
+                chartsInitialized = true;
+            }
+        }
+
+        // Lógica simulada de envío de feedback
+        function submitFeedback(e) {
+            e.preventDefault();
+            const successMsg = document.getElementById('feedback-success');
+            successMsg.style.opacity = '1';
+            setTimeout(() => {
+                successMsg.style.opacity = '0';
+                e.target.reset(); // reset form
+            }, 3000);
+        }
+
+        // --- STREAMING_CHUNK:Initializing Charts... ---
+        // Inicialización de Gráficos con Chart.js
+        function initCharts() {
+            // Configuración común
+            Chart.defaults.font.family = "'Inter', sans-serif";
+            Chart.defaults.color = '#64748b'; // slate-500
+
+            // 1. Gráfico Semanal (Dashboard)
+            const ctxWeekly = document.getElementById('chart-weekly');
+            if(ctxWeekly) {
+                chartWeeklyInstance = new Chart(ctxWeekly, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'],
+                        datasets: [{
+                            label: 'Horas estimadas',
+                            data: [8.5, 9.2, 8.8, 9.5, 8.0], // Total 44h
+                            backgroundColor: function(context) {
+                                const val = context.dataset.data[context.dataIndex];
+                                if (val > 9) return '#ef4444'; // rose-500 (alto)
+                                if (val > 8.5) return '#f59e0b'; // amber-500 (medio)
+                                return '#10b981'; // emerald-500 (bajo/saludable)
+                            },
+                            borderRadius: 6,
+                            barPercentage: 0.6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: true, max: 12, grid: { color: '#f1f5f9' } },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
+            }
+
+            // 2. Gráfico Carga Diaria (Workload)
+            const ctxDaily = document.getElementById('chart-daily-workload');
+            if(ctxDaily) {
+                chartDailyInstance = new Chart(ctxDaily, {
+                    type: 'line',
+                    data: {
+                        labels: ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'],
+                        datasets: [
+                            {
+                                label: 'Horas reales estimadas',
+                                data: [10.5, 11, 10.8, 11.2, 10.5], // Reflejando las 54h de riesgo
+                                borderColor: '#ef4444', // rose-500
+                                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                borderWidth: 3,
+                                fill: true,
+                                tension: 0.4
+                            },
+                            {
+                                label: 'Umbral Saludable (45h)',
+                                data: [9, 9, 9, 9, 9],
+                                borderColor: '#10b981', // emerald-500
+                                borderDash: [5, 5],
+                                borderWidth: 2,
+                                pointRadius: 0,
+                                fill: false
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'top' } },
+                        scales: {
+                            y: { beginAtZero: true, max: 14, grid: { color: '#f1f5f9' } },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
+            }
+
+            // 3. Gráfico Distribución (Workload)
+            const ctxDist = document.getElementById('chart-distribution');
+            if(ctxDist) {
+                chartDistInstance = new Chart(ctxDist, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Trabajo Técnico Core', 'Reuniones', 'Tareas Administrativas', 'Bloqueos/Incidencias'],
+                        datasets: [{
+                            data: [35, 25, 32, 8],
+                            backgroundColor: [
+                                '#3b82f6', // blue (trabajo)
+                                '#f59e0b', // amber (reuniones)
+                                '#8b5cf6', // purple (admin)
+                                '#ef4444'  // rose (bloqueos)
+                            ],
+                            borderWidth: 0,
+                            hoverOffset: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '70%',
+                        plugins: {
+                            legend: { position: 'right' }
+                        }
+                    }
+                });
+            }
+        }
+
+        // --- STREAMING_CHUNK:Configuring Manager AI Assistant... ---
+        // --- Lógica del Manager AI Assistant ---
+        let managerChatContext = `
+            Contexto del Equipo:
+            - Carga media: 48 horas semanales.
+            - 3 personas en riesgo de burnout.
+            - Tiempo administrativo medio: 26%.
+            - 42 reuniones semanales.
+            
+            Proyectos:
+            - Cloud Migration: Carga Alta (52h/sem), Riesgo Alto. Recomendación actual: Redistribuir tareas críticas, ampliar equipo.
+            - Cybersecurity Audit: Carga Media (46h/sem), Riesgo Medio. Recomendación actual: Revisar y cancelar reuniones solapadas.
+            - Retail App Core: Carga Baja (42h/sem), Riesgo Bajo. Recomendación actual: Mantener seguimiento estándar.
+            
+            Recomendaciones Generales Pendientes:
+            - Redistribuir tareas críticas (Cloud Migration)
+            - Cancelar reuniones duplicadas equipo Ciberseguridad
+            - Revisar deadlines poco realistas con Cliente X
+            - Reforzar equipo en proyecto crítico (Dev Ops)
+        `;
+
+        function handleManagerChatKeyPress(event) {
+            if (event.key === 'Enter') {
+                handleManagerChatSubmit();
+            }
+        }
+
+        function handleManagerChatSubmit() {
+            const inputField = document.getElementById('manager-chat-input');
+            const prompt = inputField.value.trim();
+            if (prompt) {
+                sendManagerPrompt(prompt);
+                inputField.value = ''; // Clear input
+            }
+        }
+
+        async function sendManagerPrompt(prompt) {
+            const chatHistory = document.getElementById('manager-chat-history');
+            
+            // 1. Add User Message to UI
+            const userMsgHTML = `
+                <div class="flex items-start gap-3 justify-end">
+                    <div class="bg-brand-600 p-3 rounded-lg shadow-sm text-sm text-white max-w-[80%]">
+                        ${prompt}
+                    </div>
+                </div>
+            `;
+            chatHistory.insertAdjacentHTML('beforeend', userMsgHTML);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+
+            // 2. Add Loading Indicator
+            const loadingId = 'loading-' + Date.now();
+            const loadingHTML = `
+                <div id="${loadingId}" class="flex items-start gap-3">
+                    <div class="w-8 h-8 bg-brand-500 rounded-full flex items-center justify-center text-white flex-shrink-0">
+                        <i class="fa-solid fa-robot text-xs"></i>
+                    </div>
+                    <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm text-sm text-slate-500 flex items-center gap-2">
+                        <i class="fa-solid fa-circle-notch fa-spin text-brand-500"></i> Analizando datos del equipo...
+                    </div>
+                </div>
+            `;
+            chatHistory.insertAdjacentHTML('beforeend', loadingHTML);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+
+            // 3. Call Gemini API
+            const systemInstruction = "Eres un asistente de IA para managers llamado SmartOps. Tu objetivo es proporcionar información clara, concisa y procesable sobre la carga de trabajo del equipo basándote SÓLO en el contexto proporcionado. Usa un tono profesional, empático y orientado a prevenir el burnout. Formatea tu respuesta con listas o negritas si es útil, pero mantenla breve (máximo 2-3 párrafos). Devuelve la respuesta en HTML seguro (sin etiquetas de bloque completas, solo formato de texto dentro de divs/p/ul).";
+            
+            const fullQuery = `
+                Contexto:
+                ${managerChatContext}
+                
+                Pregunta del Manager:
+                ${prompt}
+            `;
+
+            const apiKey = ""; // Handled by environment
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+            const payload = {
+                contents: [{ parts: [{ text: fullQuery }] }],
+                systemInstruction: { parts: [{ text: systemInstruction }] }
+            };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const result = await response.json();
+                const candidate = result.candidates?.[0];
+
+                // Remove loading indicator
+                document.getElementById(loadingId).remove();
+
+                if (candidate && candidate.content?.parts?.[0]?.text) {
+                    let aiResponse = candidate.content.parts[0].text;
+                    // Clean up potential markdown formatting that shouldn't be there
+                     aiResponse = aiResponse.replace(/^```html\n?/, '').replace(/\n?```$/, '');
+                     
+                     // Helper function to render bold text if the model returned markdown bold instead of html
+                     aiResponse = aiResponse.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                     aiResponse = aiResponse.replace(/\*(.*?)\*/g, '<em>$1</em>');
+                     
+                     // Basic line break handling if model didn't return HTML paragraphs
+                     if(!aiResponse.includes('<p>') && !aiResponse.includes('<br>')) {
+                         aiResponse = aiResponse.replace(/\n/g, '<br>');
+                     }
+
+                    // 4. Add AI Response to UI
+                    const aiMsgHTML = `
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 bg-brand-500 rounded-full flex items-center justify-center text-white flex-shrink-0">
+                                <i class="fa-solid fa-robot text-xs"></i>
+                            </div>
+                            <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm text-sm text-slate-700 max-w-[80%] space-y-2">
+                                ${aiResponse}
+                            </div>
+                        </div>
+                    `;
+                    chatHistory.insertAdjacentHTML('beforeend', aiMsgHTML);
+                }
+            } catch (error) {
+                console.error("Error calling Gemini API:", error);
+                document.getElementById(loadingId).remove();
+                
+                const errorMsgHTML = `
+                    <div class="flex items-start gap-3">
+                        <div class="w-8 h-8 bg-brand-500 rounded-full flex items-center justify-center text-white flex-shrink-0">
+                            <i class="fa-solid fa-robot text-xs"></i>
+                        </div>
+                        <div class="bg-rose-50 p-3 rounded-lg border border-rose-200 shadow-sm text-sm text-rose-700">
+                            <i class="fa-solid fa-triangle-exclamation mr-1"></i> Lo siento, hubo un problema al procesar tu solicitud. Inténtalo de nuevo.
+                        </div>
+                    </div>
+                `;
+                chatHistory.insertAdjacentHTML('beforeend', errorMsgHTML);
+            }
+            
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        // --- STREAMING_CHUNK:Configuring Reports AI Assistant... ---
+        // --- Funciones para la API de Gemini (SmartOps AI Assistant) ---
+
+        function toggleAIAssistant() {
+            const panel = document.getElementById('ai-assistant-panel');
+            panel.classList.toggle('hidden');
+        }
+
+        function callGeminiCustom() {
+            const prompt = document.getElementById('ai-custom-prompt').value;
+            if (prompt.trim() !== '') {
+                callGemini(prompt);
+            }
+        }
+
+        async function callGemini(userInstruction) {
+            const loadingIndicator = document.getElementById('ai-loading');
+            const panel = document.getElementById('ai-assistant-panel');
+            
+            // Extract the current report content
+            const reportContainer = document.querySelector('.p-8.space-y-6.text-sm.text-slate-700');
+            const currentReportContent = reportContainer.innerText;
+
+            loadingIndicator.classList.remove('hidden');
+
+            const systemPrompt = "Actúa como un asistente virtual corporativo llamado SmartOps. Tu tarea es reescribir y mejorar el reporte de estado de proyecto que se te proporciona, siguiendo estrictamente la instrucción del usuario. Devuelve ÚNICAMENTE el reporte reescrito en formato HTML, utilizando las mismas clases de Tailwind CSS y estructura que el original (secciones con bordes, iconos de FontAwesome, listas ul/li). No incluyas explicaciones previas ni bloques de markdown (```html). Mantén el tono profesional.";
+            
+            const fullQuery = `
+                Instrucción: ${userInstruction}
+                
+                Reporte Original:
+                ${currentReportContent}
+            `;
+
+            const apiKey = ""; // API key is handled automatically by the environment
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+            const payload = {
+                contents: [{ parts: [{ text: fullQuery }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] }
+            };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                const candidate = result.candidates?.[0];
+
+                if (candidate && candidate.content?.parts?.[0]?.text) {
+                    let newHTML = candidate.content.parts[0].text;
+                    
+                    // Basic cleanup in case the model wraps it in markdown anyway
+                    newHTML = newHTML.replace(/^```html\n?/, '').replace(/\n?```$/, '');
+
+                    // Replace the content
+                    reportContainer.innerHTML = newHTML;
+                    
+                    // Hide panel and clear loading
+                    toggleAIAssistant();
+                    document.getElementById('ai-custom-prompt').value = '';
+                } else {
+                    console.error("Unexpected API response format:", result);
+                    alert("Error: No se recibió una respuesta válida de la IA.");
+                }
+
+            } catch (error) {
+                console.error("Error calling Gemini API:", error);
+                alert("Hubo un problema al conectar con el asistente de IA. Inténtalo de nuevo más tarde.");
+            } finally {
+                loadingIndicator.classList.add('hidden');
+            }
+        }
+
+        // --- STREAMING_CHUNK:Configuring Global Automation Flow... ---
+        // --- NUEVO FLUJO LINEAL DE AUTOMATIZACIÓN GLOBAL ---
+
+        function runGlobalAutomation() {
+            const btnRun = document.getElementById('btn-run-automation');
+            const progressContainer = document.getElementById('automation-progress');
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+            const progressPercent = document.getElementById('progress-percent');
+            const resultsPanel = document.getElementById('automation-results');
+            const logContainer = progressContainer.querySelector('ul');
+
+            // 1. Ocultar botón, mostrar progreso
+            btnRun.classList.add('hidden');
+            progressContainer.classList.remove('hidden');
+            resultsPanel.classList.add('hidden');
+            resultsPanel.classList.remove('opacity-100', 'translate-y-0');
+            resultsPanel.classList.add('opacity-0', 'translate-y-4');
+            logContainer.innerHTML = '<div class="absolute bottom-0 w-full h-8 bg-gradient-to-t from-white to-transparent"></div>'; // Reset logs
+
+            // 2. Tareas simuladas (Timeline)
+            const tasks = [
+                { time: 500,  percent: 15, text: "Conectando con API de Jira Software..." },
+                { time: 1200, percent: 30, text: "Extrayendo tareas completadas del Sprint Activo." },
+                { time: 2000, percent: 45, text: "Analizando Google Calendar en busca de reuniones." },
+                { time: 2800, percent: 60, text: "Cruzando eventos de calendario con registros de Jira." },
+                { time: 3600, percent: 75, text: "Generando borrador de reporte semanal (Google Docs)." },
+                { time: 4400, percent: 90, text: "Actualizando hoja de seguimiento (Google Sheets)." },
+                { time: 5000, percent: 100, text: "Sincronización finalizada con éxito." }
+            ];
+
+            // 3. Ejecutar simulación
+            tasks.forEach(task => {
+                setTimeout(() => {
+                    // Actualizar barra y texto principal
+                    progressBar.style.width = task.percent + '%';
+                    progressPercent.innerText = task.percent + '%';
+                    progressText.innerText = task.text;
+
+                    // Añadir al log histórico
+                    const li = document.createElement('li');
+                    li.innerHTML = `<i class="fa-solid fa-angle-right text-brand-300 mr-1"></i> ${task.text}`;
+                    logContainer.prepend(li); // Insertar arriba
+
+                    // Si es la última tarea, mostrar resultados
+                    if (task.percent === 100) {
+                        setTimeout(() => {
+                            progressContainer.classList.add('hidden');
+                            resultsPanel.classList.remove('hidden');
+                            // Delay for Tailwind animation
+                            setTimeout(() => {
+                                resultsPanel.classList.remove('opacity-0', 'translate-y-4');
+                                resultsPanel.classList.add('opacity-100', 'translate-y-0');
+                            }, 50);
+                        }, 800);
+                    }
+                }, task.time);
+            });
+        }
+
+        function resetGlobalAutomation() {
+            const btnRun = document.getElementById('btn-run-automation');
+            const progressContainer = document.getElementById('automation-progress');
+            const resultsPanel = document.getElementById('automation-results');
+            const progressBar = document.getElementById('progress-bar');
+            
+            // Reset estado visual
+            resultsPanel.classList.remove('opacity-100', 'translate-y-0');
+            resultsPanel.classList.add('opacity-0', 'translate-y-4');
+            
+            setTimeout(() => {
+                resultsPanel.classList.add('hidden');
+                progressContainer.classList.add('hidden');
+                btnRun.classList.remove('hidden');
+                progressBar.style.width = '0%';
+            }, 300);
+        }
+
+    </script>
+</body>
+</html>
